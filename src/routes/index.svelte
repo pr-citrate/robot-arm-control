@@ -3,10 +3,24 @@
 <script lang="ts">
     import { onMount } from 'svelte';
     import { robotState } from '$lib/stores/robotStore';
-    import { invoke } from '@tauri-apps/api/tauri';
-    import { writable } from 'svelte/store';
+    import { invoke } from "@tauri-apps/api/core";
+    interface stateInterface {
+        J1: number;
+        J2: number;
+        J3: number;
+        J4: number;
+        J5: number;
+        J6: number;
+        Di1: boolean;
+        Di2: boolean;
+        Di3: boolean;
+        Do1: boolean;
+        Do2: boolean;
+        Do3: boolean;
+        robotSpeed: number;
+    }
 
-    let localState = {
+    let localState: stateInterface = {
         J1: 90,
         J2: 90,
         J3: 90,
@@ -22,6 +36,33 @@
         robotSpeed: 50,
     };
 
+    const getJointState = (state: stateInterface): Record<string,number> => {
+        return {
+            J1: state.J1,
+            J2: state.J2,
+            J3: state.J3,
+            J4: state.J4,
+            J5: state.J5,
+            J6: state.J6,
+        }
+    }
+
+    const getDigitalPinState = (state: stateInterface): Record<string,boolean> => {
+        return {
+            Di1: state.Di1,
+            Di2: state.Di2,
+            Di3: state.Di3,
+            Do1: state.Do1,
+            Do2: state.Do2,
+            Do3: state.Do3,
+        }
+    }
+
+    let jointState: Record<string,number> = getJointState(localState)
+
+    let digitalPinState: Record<string,boolean> = getDigitalPinState(localState)
+
+
     const updateRobot = async () => {
         try {
             await invoke('send_robot_commands', { robotState: localState });
@@ -32,9 +73,11 @@
 
     const fetchRobotState = async () => {
         try {
-            const state = await invoke('read_robot_state');
+            const state: stateInterface = await invoke('read_robot_state');
             robotState.set(state);
             localState = { ...state };
+            jointState = getJointState(localState)
+            digitalPinState = getDigitalPinState(localState)
         } catch (error) {
             console.error('Error reading robot state:', error);
         }
@@ -50,7 +93,7 @@
         }
 
         // Fetch robot state periodically
-        setInterval(fetchRobotState, 1000);
+        setInterval(fetchRobotState, 100);
     });
 </script>
 
@@ -64,14 +107,14 @@
             {#each ['J1', 'J2', 'J3', 'J4', 'J5', 'J6'] as servo}
                 <div class="mb-4">
                     <label class="block text-sky-dark mb-2" for={servo}>
-                        {servo}: {localState[servo]}
+                        {servo}: {jointState[servo]}
                     </label>
                     <input
                         type="range"
                         id={servo}
                         min="0"
                         max="180"
-                        bind:value={localState[servo]}
+                        bind:value={jointState[servo]}
                         class="w-full"
                         on:input={updateRobot}
                     />
@@ -101,7 +144,7 @@
                     <input
                         type="checkbox"
                         id={doPin}
-                        bind:checked={localState[doPin]}
+                        bind:checked={digitalPinState[doPin]}
                         class="mr-2"
                         on:change={updateRobot}
                     />
@@ -120,10 +163,10 @@
                     <span class="text-sky-dark mr-2">{diPin}:</span>
                     <span
                         class={`px-2 py-1 rounded ${
-                            $robotState[diPin] ? 'bg-green-500' : 'bg-red-500'
+                            digitalPinState[diPin] ? 'bg-green-500' : 'bg-red-500'
                         } text-white`}
                     >
-                        {$robotState[diPin] ? 'ON' : 'OFF'}
+                        {digitalPinState[diPin] ? 'ON' : 'OFF'}
                     </span>
                 </div>
             {/each}
