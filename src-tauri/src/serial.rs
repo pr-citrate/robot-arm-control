@@ -1,8 +1,10 @@
-use serialport;
+// src-tauri/serial.rs
+
 use serde::{Deserialize, Serialize};
-use std::time::Duration;
+use serialport;
+use std::io::ErrorKind;
 use std::sync::{Arc, Mutex};
-//use std::thread;
+use std::time::Duration;
 use tauri::State;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -23,32 +25,78 @@ pub struct RobotState {
 }
 
 pub struct SerialPortManager {
-    port: Arc<Mutex<Box<dyn serialport::SerialPort>>>,
+    port: Arc<Mutex<Option<Box<dyn serialport::SerialPort + Send>>>>,
 }
 
 impl SerialPortManager {
-    pub fn new(port_name: &str, baud_rate: u32) -> Result<Self, serialport::Error> {
-        let s = serialport::new(port_name, baud_rate)
-            .timeout(Duration::from_millis(10))
-            .open()?;
-        Ok(Self {
-            port: Arc::new(Mutex::new(s)),
-        })
+    pub fn new() -> Self {
+        Self {
+            port: Arc::new(Mutex::new(None)),
+        }
     }
 
-    pub fn send_data(&self, data: &[u8]) -> Result<(), serialport::Error> {
-        let mut port = self.port.lock().unwrap();
-        port.write_all(data)?;
+    pub fn initialize(&self, port_name: &str, baud_rate: u32) -> Result<(), serialport::Error> {
+        let s = serialport::new(port_name, baud_rate)
+            .timeout(Duration::from_millis(100))
+            .open()?;
+        let mut port_lock = self.port.lock().unwrap();
+        *port_lock = Some(s);
         Ok(())
     }
 
-    pub fn read_data(&self) -> Result<Vec<u8>, serialport::Error> {
-        let mut port = self.port.lock().unwrap();
-        let mut buffer: Vec<u8> = vec![0; 15];
-        match port.read_exact(&mut buffer) {
-            Ok(_) => Ok(buffer),
-            Err(e) => Err(e.into()),
+    pub fn send_data(&self, data: &[u8]) -> Result<(), serialport::Error> {
+        let mut port_lock = self.port.lock().unwrap(); // Declare as mutable
+        if let Some(ref mut port) = *port_lock {
+            port.write_all(data)?;
+            Ok(())
+        } else {
+            Err(serialport::Error::new(
+                serialport::ErrorKind::Io(ErrorKind::Other),
+                "Serial port not initialized",
+            ))
         }
+    }
+
+    pub fn read_data(&self) -> Result<RobotState, serialport::Error> {
+        let mut port_lock = self.port.lock().unwrap(); // Declare as mutable
+        if let Some(ref mut port) = *port_lock {
+            let mut buffer: Vec<u8> = vec![0; 15];
+            match port.read_exact(&mut buffer) {
+                Ok(_) => {
+                    if buffer.len() != 15 || buffer[0] != 253 || buffer[14] != 254 {
+                        return Err(serialport::Error::new(
+                            serialport::ErrorKind::InvalidInput,
+                            "Invalid data packet",
+                        ));
+                    }
+                    Ok(RobotState {
+                        J1: buffer[1],
+                        J2: buffer[2],
+                        J3: buffer[3],
+                        J4: buffer[4],
+                        J5: buffer[5],
+                        J6: buffer[6],
+                        Di1: buffer[7] != 0,
+                        Di2: buffer[8] != 0,
+                        Di3: buffer[9] != 0,
+                        Do1: buffer[10] != 0,
+                        Do2: buffer[11] != 0,
+                        Do3: buffer[12] != 0,
+                        robotSpeed: buffer[13],
+                    })
+                }
+                Err(e) => Err(e.into()),
+            }
+        } else {
+            Err(serialport::Error::new(
+                serialport::ErrorKind::Io(ErrorKind::Other),
+                "Serial port not initialized",
+            ))
+        }
+    }
+
+    pub fn list_ports() -> Result<Vec<serialport::SerialPortInfo>, serialport::Error> {
+        serialport::available_ports()
     }
 }
 
@@ -58,22 +106,36 @@ pub struct AppState {
 }
 
 #[tauri::command]
-pub fn initialize_serial(port: String, baud_rate: u32) -> Result<String, String> {
-    match SerialPortManager::new(&port, baud_rate) {
-        Ok(manager) => {
-            let _state = AppState {
-                serial_manager: Arc::new(manager),
-            };
-            // Here you might want to store the state globally
-            // For simplicity, we'll skip it in this example
-            Ok("Serial port initialized".into())
+pub fn list_serial_ports() -> Result<Vec<String>, String> {
+    match SerialPortManager::list_ports() {
+        Ok(ports) => {
+            let port_names = ports
+                .into_iter()
+                .map(|port| port.port_name)
+                .collect::<Vec<String>>();
+            Ok(port_names)
         }
+        Err(e) => Err(format!("Failed to list serial ports: {}", e)),
+    }
+}
+
+#[tauri::command]
+pub fn initialize_serial(
+    state: State<'_, AppState>,
+    port: String,
+    baud_rate: u32,
+) -> Result<String, String> {
+    match state.serial_manager.initialize(&port, baud_rate) {
+        Ok(_) => Ok("Serial port initialized".into()),
         Err(e) => Err(format!("Failed to open serial port: {}", e)),
     }
 }
 
 #[tauri::command]
-pub fn send_robot_commands(state: State<'_, AppState>, robot_state: RobotState) -> Result<(), String> {
+pub fn send_robot_commands(
+    state: State<'_, AppState>,
+    robot_state: RobotState,
+) -> Result<(), String> {
     let mut data = [0u8; 15];
     data[0] = 253;
     data[1] = robot_state.J1;
@@ -101,28 +163,8 @@ pub fn send_robot_commands(state: State<'_, AppState>, robot_state: RobotState) 
 
 #[tauri::command]
 pub fn read_robot_state(state: State<'_, AppState>) -> Result<RobotState, String> {
-    let data = state
+    state
         .serial_manager
         .read_data()
-        .map_err(|e| format!("Failed to read data: {}", e))?;
-
-    if data.len() != 15 || data[0] != 253 || data[14] != 254 {
-        return Err("Invalid data packet".into());
-    }
-
-    Ok(RobotState {
-        J1: data[1],
-        J2: data[2],
-        J3: data[3],
-        J4: data[4],
-        J5: data[5],
-        J6: data[6],
-        Di1: data[7] != 0,
-        Di2: data[8] != 0,
-        Di3: data[9] != 0,
-        Do1: data[10] != 0,
-        Do2: data[11] != 0,
-        Do3: data[12] != 0,
-        robotSpeed: data[13],
-    })
+        .map_err(|e| format!("Failed to read data: {}", e))
 }

@@ -4,7 +4,9 @@
     import { onMount } from 'svelte';
     import { robotState } from '$lib/stores/robotStore';
     import { invoke } from "@tauri-apps/api/core";
-    interface stateInterface {
+    import { writable } from 'svelte/store';
+
+    interface StateInterface {
         J1: number;
         J2: number;
         J3: number;
@@ -20,7 +22,7 @@
         robotSpeed: number;
     }
 
-    let localState: stateInterface = {
+    let localState: StateInterface = {
         J1: 90,
         J2: 90,
         J3: 90,
@@ -36,7 +38,7 @@
         robotSpeed: 50,
     };
 
-    const getJointState = (state: stateInterface): Record<string,number> => {
+    const getJointState = (state: StateInterface): Record<string, number> => {
         return {
             J1: state.J1,
             J2: state.J2,
@@ -47,7 +49,7 @@
         }
     }
 
-    const getDigitalPinState = (state: stateInterface): Record<string,boolean> => {
+    const getDigitalPinState = (state: StateInterface): Record<string, boolean> => {
         return {
             Di1: state.Di1,
             Di2: state.Di2,
@@ -58,47 +60,128 @@
         }
     }
 
-    let jointState: Record<string,number> = getJointState(localState)
+    let jointState: Record<string, number> = getJointState(localState);
+    let digitalPinState: Record<string, boolean> = getDigitalPinState(localState);
 
-    let digitalPinState: Record<string,boolean> = getDigitalPinState(localState)
+    // New: Available Serial Ports
+    const availablePorts = writable<string[]>([]);
+    let selectedPort: string = '';
+    let baudRate: number = 9600; // Default baud rate
 
+    // New: Status Messages
+    const statusMessage = writable<string>('');
 
     const updateRobot = async () => {
         try {
             await invoke('send_robot_commands', { robotState: localState });
+            statusMessage.set('Commands sent successfully.');
         } catch (error) {
             console.error('Error sending robot commands:', error);
+            statusMessage.set('Failed to send commands.');
         }
     };
 
     const fetchRobotState = async () => {
         try {
-            const state: stateInterface = await invoke('read_robot_state');
+            const state: StateInterface = await invoke('read_robot_state');
             robotState.set(state);
             localState = { ...state };
-            jointState = getJointState(localState)
-            digitalPinState = getDigitalPinState(localState)
+            jointState = getJointState(localState);
+            digitalPinState = getDigitalPinState(localState);
         } catch (error) {
             console.error('Error reading robot state:', error);
+            statusMessage.set('Failed to read robot state.');
         }
     };
 
-    // Initialize serial port on mount
-    onMount(async () => {
+    const listPorts = async () => {
         try {
-            await invoke('initialize_serial', { port: '/dev/ttyUSB0', baud_rate: 9600 });
-            console.log('Serial port initialized');
+            const ports: string[] = await invoke('list_serial_ports');
+            availablePorts.set(ports);
         } catch (error) {
-            console.error('Failed to initialize serial port:', error);
+            console.error('Error listing serial ports:', error);
+            statusMessage.set('Failed to list serial ports.');
+        }
+    };
+
+    const initializePort = async () => {
+        if (!selectedPort) {
+            statusMessage.set('Please select a serial port.');
+            return;
         }
 
-        // Fetch robot state periodically
-        setInterval(fetchRobotState, 100);
+        try {
+            await invoke('initialize_serial', { port: selectedPort, baud_rate: baudRate });
+            statusMessage.set(`Serial port ${selectedPort} initialized.`);
+            // Optionally, fetch robot state immediately after initialization
+            await fetchRobotState();
+        } catch (error) {
+            console.error('Failed to initialize serial port:', error);
+            statusMessage.set(`Failed to initialize serial port ${selectedPort}.`);
+        }
+    };
+
+    // Initialize serial port list on mount
+    onMount(async () => {
+        await listPorts();
+
+        // Optionally, auto-select the first available port
+        availablePorts.subscribe(ports => {
+            if (ports.length > 0 && !selectedPort) {
+                selectedPort = ports[0];
+            }
+        });
+
+        // Fetch robot state periodically if serial port is initialized
+        setInterval(fetchRobotState, 1000);
     });
 </script>
 
 <div class="min-h-screen bg-sky-light text-slate-800 p-8">
     <h1 class="text-4xl font-bold mb-6 text-sky-dark">6-Axis Robot Arm Controller</h1>
+
+    <!-- Serial Port Selection -->
+    <div class="mb-8 bg-white shadow-md rounded-lg p-6">
+        <h2 class="text-2xl font-semibold mb-4 text-sky-dark">Serial Port Configuration</h2>
+        <div class="flex items-center space-x-4">
+            <div>
+                <label for="serialPort" class="block text-sky-dark mb-2">Serial Port:</label>
+                <select
+                    id="serialPort"
+                    bind:value={selectedPort}
+                    class="w-full border border-sky-dark rounded p-2"
+                >
+                    <option value="" disabled>Select a port</option>
+                    {#each $availablePorts as port}
+                        <option value={port}>{port}</option>
+                    {/each}
+                </select>
+            </div>
+            <div>
+                <label for="baudRate" class="block text-sky-dark mb-2">Baud Rate:</label>
+                <input
+                    type="number"
+                    id="baudRate"
+                    bind:value={baudRate}
+                    min="300"
+                    max="115200"
+                    step="300"
+                    class="w-full border border-sky-dark rounded p-2"
+                />
+            </div>
+            <div class="flex items-end">
+                <button
+                    on:click={initializePort}
+                    class="bg-sky-dark text-white px-4 py-2 rounded hover:bg-sky-700"
+                >
+                    Initialize
+                </button>
+            </div>
+        </div>
+        {#if $statusMessage}
+            <p class="mt-4 text-sm text-red-500">{$statusMessage}</p>
+        {/if}
+    </div>
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
         <!-- Servo Controls -->
