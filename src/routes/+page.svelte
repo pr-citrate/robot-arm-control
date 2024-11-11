@@ -1,7 +1,7 @@
 <!-- src/routes/index.svelte -->
 
 <script lang="ts">
-    import { onMount } from 'svelte';
+    import { onMount } from "svelte";
     import { robotState } from '$lib/stores/robotStore';
     import { invoke } from "@tauri-apps/api/core";
     import { writable } from 'svelte/store';
@@ -256,7 +256,3 @@
         </div>
     </div>
 </div>
-
-<style>
-    /* Add any additional styles if necessary */
-</style>
