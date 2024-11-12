@@ -1,33 +1,54 @@
-import {type Writable, writable} from 'svelte/store';
+// src/lib/stores/robotStore.ts
 
-interface robotStateInterface {
-    J1: number;
-    J2: number;
-    J3: number;
-    J4: number;
-    J5: number;
-    J6: number;
-    Di1: boolean;
-    Di2: boolean;
-    Di3: boolean;
-    Do1: boolean;
-    Do2: boolean;
-    Do3: boolean;
-    robotSpeed: number;
-}
+import {writable, type Writable} from 'svelte/store';
 
-export const robotState: Writable<robotStateInterface> = writable({
-    J1: 90,
-    J2: 90,
-    J3: 90,
-    J4: 90,
-    J5: 90,
-    J6: 90,
-    Di1: false,
-    Di2: false,
-    Di3: false,
-    Do1: false,
-    Do2: false,
-    Do3: false,
-    robotSpeed: 50,
+// Joint 및 Digital Pin 키 정의
+export type JointKeys = 'joint_1' | 'joint_2' | 'joint_3' | 'joint_4' | 'joint_5' | 'joint_6';
+export type DigitalOutputKeys = 'digital_output_1' | 'digital_output_2' | 'digital_output_3';
+export type DigitalInputKeys = 'digital_input_1' | 'digital_input_2' | 'digital_input_3';
+
+// 키 배열 정의
+export const jointKeys: JointKeys[] = ['joint_1', 'joint_2', 'joint_3', 'joint_4', 'joint_5', 'joint_6'];
+export const digitalOutputKeys: DigitalOutputKeys[] = ['digital_output_1', 'digital_output_2', 'digital_output_3'];
+export const digitalInputKeys: DigitalInputKeys[] = ['digital_input_1', 'digital_input_2', 'digital_input_3'];
+
+// Robot 상태 인터페이스 정의
+export type RobotState = Record<JointKeys, number> &
+    Record<DigitalOutputKeys, boolean> &
+    Record<DigitalInputKeys, boolean> & {
+    robot_speed: number;
+};
+
+// **현재 상태(Current State)**
+export const currentState: Writable<RobotState> = writable({
+    joint_1: 90,
+    joint_2: 90,
+    joint_3: 90,
+    joint_4: 90,
+    joint_5: 90,
+    joint_6: 90,
+    digital_input_1: false,
+    digital_input_2: false,
+    digital_input_3: false,
+    digital_output_1: false,
+    digital_output_2: false,
+    digital_output_3: false,
+    robot_speed: 50,
+});
+
+// **목표 상태(Target State)**
+export const targetState: Writable<RobotState> = writable({
+    joint_1: 90,
+    joint_2: 90,
+    joint_3: 90,
+    joint_4: 90,
+    joint_5: 90,
+    joint_6: 90,
+    digital_input_1: false, // 디지털 입력은 읽기 전용이라면 제외할 수 있습니다.
+    digital_input_2: false,
+    digital_input_3: false,
+    digital_output_1: false,
+    digital_output_2: false,
+    digital_output_3: false,
+    robot_speed: 50,
 });

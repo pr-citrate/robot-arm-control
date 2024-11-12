@@ -2,11 +2,12 @@
 
 use serde::{Deserialize, Serialize};
 use serialport;
-use std::io::ErrorKind;
+use std::io::{ErrorKind, Read, Write};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tauri::State;
 
+// RobotState 구조체 정의
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RobotState {
     pub joint_1: u8,
@@ -24,6 +25,7 @@ pub struct RobotState {
     pub robot_speed: u8,
 }
 
+// SerialPortManager 구조체 정의
 pub struct SerialPortManager {
     port: Arc<Mutex<Option<Box<dyn serialport::SerialPort + Send>>>>,
 }
@@ -35,6 +37,7 @@ impl SerialPortManager {
         }
     }
 
+    // 시리얼 포트 초기화 함수
     pub fn initialize(&self, port_name: &str, baud_rate: u32) -> Result<(), serialport::Error> {
         let s = serialport::new(port_name, baud_rate)
             .timeout(Duration::from_millis(100))
@@ -44,10 +47,13 @@ impl SerialPortManager {
         Ok(())
     }
 
+    // 데이터 전송 함수
     pub fn send_data(&self, data: &[u8]) -> Result<(), serialport::Error> {
-        let mut port_lock = self.port.lock().unwrap(); // Declare as mutable
+        let mut port_lock = self.port.lock().unwrap();
         if let Some(ref mut port) = *port_lock {
             port.write_all(data)?;
+            // 데이터 전송 로그
+            println!("Sent data: {:?}", data);
             Ok(())
         } else {
             Err(serialport::Error::new(
@@ -57,13 +63,14 @@ impl SerialPortManager {
         }
     }
 
+    // 데이터 수신 함수
     pub fn read_data(&self) -> Result<RobotState, String> {
         let mut port_lock = self.port.lock().unwrap();
         if let Some(ref mut port) = *port_lock {
             let mut buffer: Vec<u8> = Vec::new();
             let mut byte: u8;
 
-            // 읽기 루프: 헤드 바이트(253)를 찾을 때까지 계속 읽기
+            // 헤드 바이트(253) 찾기
             loop {
                 let mut single_byte = [0u8; 1];
                 match port.read_exact(&mut single_byte) {
@@ -73,27 +80,28 @@ impl SerialPortManager {
                             buffer.push(byte);
                             break;
                         }
-                    }
+                    },
                     Err(ref e) if e.kind() == ErrorKind::TimedOut => {
-                        return Err("Timed out waiting for data".into());
-                    }
+                        return Err("데이터를 기다리는 동안 타임아웃이 발생했습니다.".into());
+                    },
                     Err(e) => {
-                        return Err(format!("Error reading serial port: {}", e));
-                    }
+                        return Err(format!("시리얼 포트 읽기 오류: {}", e));
+                    },
                 }
             }
 
-            // 헤드 바이트 이후 14바이트 읽기
+            // 나머지 14바이트 읽기
             let mut remaining_bytes = [0u8; 14];
             match port.read_exact(&mut remaining_bytes) {
                 Ok(_) => {
                     buffer.extend_from_slice(&remaining_bytes);
-                    // 마지막 바이트가 테일 바이트(254)인지 확인
+                    // 수신 데이터 로그
+                    println!("Received data: {:?}", buffer);
+
                     if buffer.len() != 15 || buffer[14] != 254 {
-                        return Err("Invalid data packet: Incorrect tail byte".into());
+                        return Err("유효하지 않은 데이터 패킷: 잘못된 테일 바이트".into());
                     }
 
-                    // 데이터 패킷 파싱
                     Ok(RobotState {
                         joint_1: buffer[1],
                         joint_2: buffer[2],
@@ -109,26 +117,29 @@ impl SerialPortManager {
                         digital_output_3: buffer[12] != 0,
                         robot_speed: buffer[13],
                     })
-                }
+                },
                 Err(e) => {
-                    return Err(format!("Error reading remaining data: {}", e));
-                }
+                    return Err(format!("나머지 데이터 읽기 오류: {}", e));
+                },
             }
         } else {
-            Err("Serial port not initialized".into())
+            Err("시리얼 포트가 초기화되지 않았습니다.".into())
         }
     }
 
+    // 시리얼 포트 목록 가져오기 함수
     pub fn list_ports() -> Result<Vec<serialport::SerialPortInfo>, serialport::Error> {
         serialport::available_ports()
     }
 }
 
+// AppState 구조체 정의
 #[derive(Clone)]
 pub struct AppState {
     pub serial_manager: Arc<SerialPortManager>,
 }
 
+// 시리얼 포트 목록 커맨드
 #[tauri::command]
 pub fn list_serial_ports() -> Result<Vec<String>, String> {
     match SerialPortManager::list_ports() {
@@ -139,10 +150,11 @@ pub fn list_serial_ports() -> Result<Vec<String>, String> {
                 .collect::<Vec<String>>();
             Ok(port_names)
         }
-        Err(e) => Err(format!("Failed to list serial ports: {}", e)),
+        Err(e) => Err(format!("시리얼 포트 목록 가져오기 실패: {}", e)),
     }
 }
 
+// 시리얼 포트 초기화 커맨드
 #[tauri::command]
 pub fn initialize_serial(
     state: State<'_, AppState>,
@@ -150,11 +162,12 @@ pub fn initialize_serial(
     baud_rate: u32,
 ) -> Result<String, String> {
     match state.serial_manager.initialize(&port, baud_rate) {
-        Ok(_) => Ok("Serial port initialized".into()),
-        Err(e) => Err(format!("Failed to open serial port: {}", e)),
+        Ok(_) => Ok("시리얼 포트가 성공적으로 초기화되었습니다.".into()),
+        Err(e) => Err(format!("시리얼 포트 열기 실패: {}", e)),
     }
 }
 
+// 로봇 명령 전송 커맨드
 #[tauri::command]
 pub fn send_robot_commands(
     state: State<'_, AppState>,
@@ -168,27 +181,31 @@ pub fn send_robot_commands(
     data[4] = robot_state.joint_4;
     data[5] = robot_state.joint_5;
     data[6] = robot_state.joint_6;
-    data[7] = 0; // Unused in Arduino code
-    data[8] = 0; // Unused in Arduino code
-    data[9] = 0; // Unused in Arduino code
+    data[7] = robot_state.digital_input_1 as u8;
+    data[8] = robot_state.digital_input_2 as u8;
+    data[9] = robot_state.digital_input_3 as u8;
     data[10] = robot_state.digital_output_1 as u8;
     data[11] = robot_state.digital_output_2 as u8;
     data[12] = robot_state.digital_output_3 as u8;
     data[13] = robot_state.robot_speed;
     data[14] = 254;
 
+    // 데이터 전송 로그
+    println!("Sending robot commands: {:?}", data);
+
     state
         .serial_manager
         .send_data(&data)
-        .map_err(|e| format!("Failed to send data: {}", e))?;
+        .map_err(|e| format!("데이터 전송 실패: {}", e))?;
 
     Ok(())
 }
 
+// 로봇 상태 읽기 커맨드
 #[tauri::command]
 pub fn read_robot_state(state: State<'_, AppState>) -> Result<RobotState, String> {
-    state
-        .serial_manager
-        .read_data()
-        .map_err(|e| format!("Failed to read data: {}", e))
+    match state.serial_manager.read_data() {
+        Ok(robot_state) => Ok(robot_state),
+        Err(e) => Err(format!("로봇 상태 읽기 실패: {}", e)),
+    }
 }

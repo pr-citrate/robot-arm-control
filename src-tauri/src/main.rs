@@ -1,3 +1,5 @@
+
+// main.rs 수정
 // src-tauri/src/main.rs
 
 #![cfg_attr(
@@ -7,10 +9,7 @@
 
 mod serial;
 
-use serial::SerialPortManager;
-use serial::{
-    initialize_serial, list_serial_ports, read_robot_state, send_robot_commands, AppState,
-};
+use serial::{initialize_serial, list_serial_ports, read_robot_state, send_robot_commands, AppState, SerialPortManager};
 use std::sync::Arc;
 
 fn main() {
@@ -25,5 +24,5 @@ fn main() {
             read_robot_state
         ])
         .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .expect("Tauri 애플리케이션 실행 중 오류 발생");
 }
