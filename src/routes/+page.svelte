@@ -7,61 +7,61 @@
     import { writable } from 'svelte/store';
 
     interface StateInterface {
-        J1: number;
-        J2: number;
-        J3: number;
-        J4: number;
-        J5: number;
-        J6: number;
-        Di1: boolean;
-        Di2: boolean;
-        Di3: boolean;
-        Do1: boolean;
-        Do2: boolean;
-        Do3: boolean;
+        joint_1: number;
+        joint_2: number;
+        joint_3: number;
+        joint_4: number;
+        joint_5: number;
+        joint_6: number;
+        digital_input_1: boolean;
+        digital_input_2: boolean;
+        digital_input_3: boolean;
+        digital_output_1: boolean;
+        digital_output_2: boolean;
+        digital_output_3: boolean;
         robotSpeed: number;
     }
 
     let localState: StateInterface = {
-        J1: 90,
-        J2: 90,
-        J3: 90,
-        J4: 90,
-        J5: 90,
-        J6: 90,
-        Di1: false,
-        Di2: false,
-        Di3: false,
-        Do1: false,
-        Do2: false,
-        Do3: false,
+        joint_1: 90,
+        joint_2: 90,
+        joint_3: 90,
+        joint_4: 90,
+        joint_5: 90,
+        joint_6: 90,
+        digital_input_1: false,
+        digital_input_2: false,
+        digital_input_3: false,
+        digital_output_1: false,
+        digital_output_2: false,
+        digital_output_3: false,
         robotSpeed: 50,
     };
 
-    const getJointState = (state: StateInterface): Record<string, number> => {
+    const getjoint_ointState = (state: StateInterface): Record<string, number> => {
         return {
-            J1: state.J1,
-            J2: state.J2,
-            J3: state.J3,
-            J4: state.J4,
-            J5: state.J5,
-            J6: state.J6,
+            joint_1: state.joint_1,
+            joint_2: state.joint_2,
+            joint_3: state.joint_3,
+            joint_4: state.joint_4,
+            joint_5: state.joint_5,
+            joint_6: state.joint_6,
         }
     }
 
-    const getDigitalPinState = (state: StateInterface): Record<string, boolean> => {
+    const getdigital_input_gitalPinState = (state: StateInterface): Record<string, boolean> => {
         return {
-            Di1: state.Di1,
-            Di2: state.Di2,
-            Di3: state.Di3,
-            Do1: state.Do1,
-            Do2: state.Do2,
-            Do3: state.Do3,
+            digital_input_1: state.digital_input_1,
+            digital_input_2: state.digital_input_2,
+            digital_input_3: state.digital_input_3,
+            digital_output_1: state.digital_output_1,
+            digital_output_2: state.digital_output_2,
+            digital_output_3: state.digital_output_3,
         }
     }
 
-    let jointState: Record<string, number> = getJointState(localState);
-    let digitalPinState: Record<string, boolean> = getDigitalPinState(localState);
+    let jointState: Record<string, number> = getjoint_ointState(localState);
+    let digitalPinState: Record<string, boolean> = getdigital_input_gitalPinState(localState);
 
     // New: Available Serial Ports
     const availablePorts = writable<string[]>([]);
@@ -86,11 +86,11 @@
             const state: StateInterface = await invoke('read_robot_state');
             robotState.set(state);
             localState = { ...state };
-            jointState = getJointState(localState);
-            digitalPinState = getDigitalPinState(localState);
+            jointState = getjoint_ointState(localState);
+            digitalPinState = getdigital_input_gitalPinState(localState);
         } catch (error) {
             console.error('Error reading robot state:', error);
-            statusMessage.set('Failed to read robot state.');
+            statusMessage.set('Failed to read robot state.' + error);
         }
     };
 
@@ -117,7 +117,7 @@
             await fetchRobotState();
         } catch (error) {
             console.error('Failed to initialize serial port:', error);
-            statusMessage.set(`Failed to initialize serial port ${selectedPort}.`);
+            statusMessage.set(`Failed to initialize serial port ${selectedPort}.` + error);
         }
     };
 
@@ -169,10 +169,10 @@
                     class="w-full border border-sky-dark rounded p-2"
                 />
             </div>
-            <div class="flex items-end">
+            <div>
                 <button
                     on:click={initializePort}
-                    class="bg-sky-dark text-white px-4 py-2 rounded hover:bg-sky-700"
+                    class="bg-sky-400 text-white px-4 py-2 rounded hover:bg-sky-500"
                 >
                     Initialize
                 </button>
@@ -187,7 +187,7 @@
         <!-- Servo Controls -->
         <div class="bg-white shadow-md rounded-lg p-6">
             <h2 class="text-2xl font-semibold mb-4 text-sky-dark">Servo Controls</h2>
-            {#each ['J1', 'J2', 'J3', 'J4', 'J5', 'J6'] as servo}
+            {#each ['joint_1', 'joint_2', 'joint_3', 'joint_4', 'joint_5', 'joint_6'] as servo}
                 <div class="mb-4">
                     <label class="block text-sky-dark mb-2" for={servo}>
                         {servo}: {jointState[servo]}
@@ -198,7 +198,7 @@
                         min="0"
                         max="180"
                         bind:value={jointState[servo]}
-                        class="w-full"
+                        class="w-full accent-sky-400"
                         on:input={updateRobot}
                     />
                 </div>
@@ -213,22 +213,22 @@
                     min="0"
                     max="100"
                     bind:value={localState.robotSpeed}
-                    class="w-full"
+                    class="w-full accent-sky-400"
                     on:input={updateRobot}
                 />
             </div>
         </div>
 
-        <!-- Digital Outputs -->
+        <!-- digital_input_gital Outputs -->
         <div class="bg-white shadow-md rounded-lg p-6">
             <h2 class="text-2xl font-semibold mb-4 text-sky-dark">Digital Outputs</h2>
-            {#each ['Do1', 'Do2', 'Do3'] as doPin}
+            {#each ['digital_output_1', 'digital_output_2', 'digital_output_3'] as doPin}
                 <div class="flex items-center mb-4">
                     <input
                         type="checkbox"
                         id={doPin}
                         bind:checked={digitalPinState[doPin]}
-                        class="mr-2"
+                        class="mr-2 accent-sky-400"
                         on:change={updateRobot}
                     />
                     <label class="text-sky-dark" for={doPin}>{doPin}</label>
@@ -237,16 +237,16 @@
         </div>
     </div>
 
-    <!-- Digital Inputs -->
+    <!-- digital_input_gital Inputs -->
     <div class="mt-8 bg-white shadow-md rounded-lg p-6">
         <h2 class="text-2xl font-semibold mb-4 text-sky-dark">Digital Inputs</h2>
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {#each ['Di1', 'Di2', 'Di3'] as diPin}
+            {#each ['digital_input_1', 'digital_input_2', 'digital_input_3'] as diPin}
                 <div class="flex items-center">
                     <span class="text-sky-dark mr-2">{diPin}:</span>
                     <span
                         class={`px-2 py-1 rounded ${
-                            digitalPinState[diPin] ? 'bg-green-500' : 'bg-red-500'
+                            digitalPinState[diPin] ? 'bg-sky-400' : 'bg-red-400'
                         } text-white`}
                     >
                         {digitalPinState[diPin] ? 'ON' : 'OFF'}

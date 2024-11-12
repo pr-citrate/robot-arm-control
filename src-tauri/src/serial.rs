@@ -9,19 +9,19 @@ use tauri::State;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RobotState {
-    pub J1: u8,
-    pub J2: u8,
-    pub J3: u8,
-    pub J4: u8,
-    pub J5: u8,
-    pub J6: u8,
-    pub Di1: bool,
-    pub Di2: bool,
-    pub Di3: bool,
-    pub Do1: bool,
-    pub Do2: bool,
-    pub Do3: bool,
-    pub robotSpeed: u8,
+    pub joint_1: u8,
+    pub joint_2: u8,
+    pub joint_3: u8,
+    pub joint_4: u8,
+    pub joint_5: u8,
+    pub joint_6: u8,
+    pub digital_input_1: bool,
+    pub digital_input_2: bool,
+    pub digital_input_3: bool,
+    pub digital_output_1: bool,
+    pub digital_output_2: bool,
+    pub digital_output_3: bool,
+    pub robot_speed: u8,
 }
 
 pub struct SerialPortManager {
@@ -70,19 +70,19 @@ impl SerialPortManager {
                         ));
                     }
                     Ok(RobotState {
-                        J1: buffer[1],
-                        J2: buffer[2],
-                        J3: buffer[3],
-                        J4: buffer[4],
-                        J5: buffer[5],
-                        J6: buffer[6],
-                        Di1: buffer[7] != 0,
-                        Di2: buffer[8] != 0,
-                        Di3: buffer[9] != 0,
-                        Do1: buffer[10] != 0,
-                        Do2: buffer[11] != 0,
-                        Do3: buffer[12] != 0,
-                        robotSpeed: buffer[13],
+                        joint_1: buffer[1],
+                        joint_2: buffer[2],
+                        joint_3: buffer[3],
+                        joint_4: buffer[4],
+                        joint_5: buffer[5],
+                        joint_6: buffer[6],
+                        digital_input_1: buffer[7] != 0,
+                        digital_input_2: buffer[8] != 0,
+                        digital_input_3: buffer[9] != 0,
+                        digital_output_1: buffer[10] != 0,
+                        digital_output_2: buffer[11] != 0,
+                        digital_output_3: buffer[12] != 0,
+                        robot_speed: buffer[13],
                     })
                 }
                 Err(e) => Err(e.into()),
@@ -138,19 +138,19 @@ pub fn send_robot_commands(
 ) -> Result<(), String> {
     let mut data = [0u8; 15];
     data[0] = 253;
-    data[1] = robot_state.J1;
-    data[2] = robot_state.J2;
-    data[3] = robot_state.J3;
-    data[4] = robot_state.J4;
-    data[5] = robot_state.J5;
-    data[6] = robot_state.J6;
-    data[7] = robot_state.Di1 as u8;
-    data[8] = robot_state.Di2 as u8;
-    data[9] = robot_state.Di3 as u8;
-    data[10] = robot_state.Do1 as u8;
-    data[11] = robot_state.Do2 as u8;
-    data[12] = robot_state.Do3 as u8;
-    data[13] = robot_state.robotSpeed;
+    data[1] = robot_state.joint_1;
+    data[2] = robot_state.joint_2;
+    data[3] = robot_state.joint_3;
+    data[4] = robot_state.joint_4;
+    data[5] = robot_state.joint_5;
+    data[6] = robot_state.joint_6;
+    data[7] = robot_state.digital_input_1 as u8;
+    data[8] = robot_state.digital_input_2 as u8;
+    data[9] = robot_state.digital_input_3 as u8;
+    data[10] = robot_state.digital_output_1 as u8;
+    data[11] = robot_state.digital_output_2 as u8;
+    data[12] = robot_state.digital_output_3 as u8;
+    data[13] = robot_state.robot_speed;
     data[14] = 254;
 
     state
