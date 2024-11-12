@@ -111,7 +111,7 @@
         }
 
         try {
-            await invoke('initialize_serial', { port: selectedPort, baud_rate: baudRate });
+            await invoke('initialize_serial', { port: selectedPort, baudRate: baudRate });
             statusMessage.set(`Serial port ${selectedPort} initialized.`);
             // Optionally, fetch robot state immediately after initialization
             await fetchRobotState();
