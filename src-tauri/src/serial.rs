@@ -57,18 +57,43 @@ impl SerialPortManager {
         }
     }
 
-    pub fn read_data(&self) -> Result<RobotState, serialport::Error> {
-        let mut port_lock = self.port.lock().unwrap(); // Declare as mutable
+    pub fn read_data(&self) -> Result<RobotState, String> {
+        let mut port_lock = self.port.lock().unwrap();
         if let Some(ref mut port) = *port_lock {
-            let mut buffer: Vec<u8> = vec![0; 15];
-            match port.read_exact(&mut buffer) {
-                Ok(_) => {
-                    if buffer.len() != 15 || buffer[0] != 253 || buffer[14] != 254 {
-                        return Err(serialport::Error::new(
-                            serialport::ErrorKind::InvalidInput,
-                            "Invalid data packet",
-                        ));
+            let mut buffer: Vec<u8> = Vec::new();
+            let mut byte: u8;
+
+            // 읽기 루프: 헤드 바이트(253)를 찾을 때까지 계속 읽기
+            loop {
+                let mut single_byte = [0u8; 1];
+                match port.read_exact(&mut single_byte) {
+                    Ok(_) => {
+                        byte = single_byte[0];
+                        if byte == 253 {
+                            buffer.push(byte);
+                            break;
+                        }
                     }
+                    Err(ref e) if e.kind() == ErrorKind::TimedOut => {
+                        return Err("Timed out waiting for data".into());
+                    }
+                    Err(e) => {
+                        return Err(format!("Error reading serial port: {}", e));
+                    }
+                }
+            }
+
+            // 헤드 바이트 이후 14바이트 읽기
+            let mut remaining_bytes = [0u8; 14];
+            match port.read_exact(&mut remaining_bytes) {
+                Ok(_) => {
+                    buffer.extend_from_slice(&remaining_bytes);
+                    // 마지막 바이트가 테일 바이트(254)인지 확인
+                    if buffer.len() != 15 || buffer[14] != 254 {
+                        return Err("Invalid data packet: Incorrect tail byte".into());
+                    }
+
+                    // 데이터 패킷 파싱
                     Ok(RobotState {
                         joint_1: buffer[1],
                         joint_2: buffer[2],
@@ -85,13 +110,12 @@ impl SerialPortManager {
                         robot_speed: buffer[13],
                     })
                 }
-                Err(e) => Err(e.into()),
+                Err(e) => {
+                    return Err(format!("Error reading remaining data: {}", e));
+                }
             }
         } else {
-            Err(serialport::Error::new(
-                serialport::ErrorKind::Io(ErrorKind::Other),
-                "Serial port not initialized",
-            ))
+            Err("Serial port not initialized".into())
         }
     }
 
@@ -144,9 +168,9 @@ pub fn send_robot_commands(
     data[4] = robot_state.joint_4;
     data[5] = robot_state.joint_5;
     data[6] = robot_state.joint_6;
-    data[7] = robot_state.digital_input_1 as u8;
-    data[8] = robot_state.digital_input_2 as u8;
-    data[9] = robot_state.digital_input_3 as u8;
+    data[7] = 0; // Unused in Arduino code
+    data[8] = 0; // Unused in Arduino code
+    data[9] = 0; // Unused in Arduino code
     data[10] = robot_state.digital_output_1 as u8;
     data[11] = robot_state.digital_output_2 as u8;
     data[12] = robot_state.digital_output_3 as u8;

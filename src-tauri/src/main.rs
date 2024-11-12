@@ -9,7 +9,7 @@ mod serial;
 
 use serial::SerialPortManager;
 use serial::{
-    AppState, initialize_serial, list_serial_ports, read_robot_state, send_robot_commands,
+    initialize_serial, list_serial_ports, read_robot_state, send_robot_commands, AppState,
 };
 use std::sync::Arc;
 

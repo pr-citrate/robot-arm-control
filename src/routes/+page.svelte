@@ -19,7 +19,7 @@
         digital_output_1: boolean;
         digital_output_2: boolean;
         digital_output_3: boolean;
-        robotSpeed: number;
+        robot_speed: number;
     }
 
     let localState: StateInterface = {
@@ -35,33 +35,34 @@
         digital_output_1: false,
         digital_output_2: false,
         digital_output_3: false,
-        robotSpeed: 50,
+        robot_speed: 50,
     };
 
-    const getjoint_ointState = (state: StateInterface): Record<string, number> => {
-        return {
-            joint_1: state.joint_1,
-            joint_2: state.joint_2,
-            joint_3: state.joint_3,
-            joint_4: state.joint_4,
-            joint_5: state.joint_5,
-            joint_6: state.joint_6,
-        }
-    }
+    const getJointState = (state: StateInterface): Record<string, number> => {
+    return {
+        joint_1: state.joint_1,
+        joint_2: state.joint_2,
+        joint_3: state.joint_3,
+        joint_4: state.joint_4,
+        joint_5: state.joint_5,
+        joint_6: state.joint_6,
+    };
+};
 
-    const getdigital_input_gitalPinState = (state: StateInterface): Record<string, boolean> => {
-        return {
-            digital_input_1: state.digital_input_1,
-            digital_input_2: state.digital_input_2,
-            digital_input_3: state.digital_input_3,
-            digital_output_1: state.digital_output_1,
-            digital_output_2: state.digital_output_2,
-            digital_output_3: state.digital_output_3,
-        }
-    }
+const getDigitalPinState = (state: StateInterface): Record<string, boolean> => {
+    return {
+        digital_input_1: state.digital_input_1,
+        digital_input_2: state.digital_input_2,
+        digital_input_3: state.digital_input_3,
+        digital_output_1: state.digital_output_1,
+        digital_output_2: state.digital_output_2,
+        digital_output_3: state.digital_output_3,
+    };
+};
 
-    let jointState: Record<string, number> = getjoint_ointState(localState);
-    let digitalPinState: Record<string, boolean> = getdigital_input_gitalPinState(localState);
+
+    let jointState: Record<string, number> = getJointState(localState);
+    let digitalPinState: Record<string, boolean> = getDigitalPinState(localState);
 
     // New: Available Serial Ports
     const availablePorts = writable<string[]>([]);
@@ -86,8 +87,8 @@
             const state: StateInterface = await invoke('read_robot_state');
             robotState.set(state);
             localState = { ...state };
-            jointState = getjoint_ointState(localState);
-            digitalPinState = getdigital_input_gitalPinState(localState);
+            jointState = getJointState(localState);
+            digitalPinState = getDigitalPinState(localState);
         } catch (error) {
             console.error('Error reading robot state:', error);
             statusMessage.set('Failed to read robot state.' + error);
@@ -117,7 +118,7 @@
             await fetchRobotState();
         } catch (error) {
             console.error('Failed to initialize serial port:', error);
-            statusMessage.set(`Failed to initialize serial port ${selectedPort}.` + error);
+            statusMessage.set(`Failed to initialize serial port ${selectedPort}.`);
         }
     };
 
@@ -204,15 +205,15 @@
                 </div>
             {/each}
             <div class="mb-4">
-                <label class="block text-sky-dark mb-2" for="robotSpeed">
-                    Robot Speed: {localState.robotSpeed}
+                <label class="block text-sky-dark mb-2" for="robot_speed">
+                    Robot Speed: {localState.robot_speed}
                 </label>
                 <input
                     type="range"
-                    id="robotSpeed"
+                    id="robot_speed"
                     min="0"
                     max="100"
-                    bind:value={localState.robotSpeed}
+                    bind:value={localState.robot_speed}
                     class="w-full accent-sky-400"
                     on:input={updateRobot}
                 />
